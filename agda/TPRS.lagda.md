@@ -4,7 +4,7 @@ These notes are written in order to understand the paper and the
 programming technique presented in it. There is nothing original
 in these notes.
 
-In this paper, Conor McBride propose a programming technique that
+In this paper, Conor McBride proposes a programming technique that
 allows to define in a generic manner renaming and substitution on a
 lambda calculus defined ad an inductive type family (Altenkirch and
 Reus 1999).
