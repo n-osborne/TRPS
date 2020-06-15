@@ -155,7 +155,8 @@ record Kit (_◆_ : Ctxt -> Ty -> Set) : Set where
     wk : ∀ {Γ T S} -> Γ ◆ T -> (Γ , S) ◆ T
 ```
 
-
+The lift function is a general weakening function called whenever we
+cross a binder in the traversal.
 
 ```agda
 lift : ∀ {Γ Δ T S}{_◆_ : Ctxt -> Ty -> Set} -> Kit _◆_ -> (∀ {X} -> Γ ∋ X -> Δ ◆ X) -> Γ , S ∋ T -> (Δ , S) ◆ T
@@ -163,6 +164,11 @@ lift (kit vr tm wk) τ vz = vr vz
 lift (kit vr tm wk) τ (vs x) = wk (τ x)
 ```
 
+The traversal takes a Kit and a function that turns variable
+identifiers into diamond stuff (and of course a term to traverse).  It
+calls `tm` on the transformed variable identiers, lift the body of the
+lambda abstraction before traversing them and traverse recursively the
+two terms composing an application.
 
 ```agda
 trav : ∀ {Γ Δ T}{_◆_ : Ctxt -> Ty -> Set} -> Kit (_◆_) -> (∀ {X} -> Γ ∋ X -> Δ ◆ X) -> Γ ▶ T -> Δ ▶ T
@@ -171,12 +177,14 @@ trav K τ (lda t) = lda (trav K (lift K τ) t)
 trav K τ (app t t₁) = app (trav K τ t) (trav K τ t₁)
 ```
 
+`rename` traverse a term incrementing every De Bruijn indexes that need to be.
 
 ```agda
 rename : ∀ {Γ Δ T} -> (∀ {X} -> Γ ∋ X -> Δ ∋ X) -> Γ ▶ T -> Δ ▶ T
 rename ρ t = trav (kit (λ x -> x) var vs) ρ t
 ```
 
+`subst` traverse a term replacing variable accordingly to a substitution map (σ)
 
 ```agda
 subst : ∀ {Γ Δ T} -> (∀ {X} -> Γ ∋ X -> Δ ▶ X) -> Γ ▶ T -> Δ ▶ T
