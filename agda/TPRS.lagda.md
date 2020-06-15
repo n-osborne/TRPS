@@ -92,7 +92,7 @@ data _▶_ : Ctxt -> Ty -> Set where
     -> Γ ▶ S
 ```
 
-Now that our object language is define, we can tackle the main object
+Now that our object language is defined, we can tackle the main object
 of the paper: the generic definition of renaming and substitution of
 our De Bruijn terms.
 
