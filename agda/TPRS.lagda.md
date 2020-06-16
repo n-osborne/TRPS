@@ -1,4 +1,4 @@
-# Notes on Conor McBride unpublished *Type-Preserving Renaming and Substitution*
+Notes on Conor McBride unpublished *Type-Preserving Renaming and Substitution*
 
 These notes are written in order to understand the paper and the
 programming technique presented in it. There is nothing original
