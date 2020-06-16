@@ -120,10 +120,10 @@ the closest binder (the latest abstraction). In the case of renaming,
 the new bound variable. In the case of substitution, is is defined
 as `var` as we don't want to susbtitute the new bound variable.
 
-The `tm` field contains a function that turns one of this *diamond
-stuff* into a term. It is used in the traversal operation whenever we
-cross a variable, its identifier first being turned into a diamond
-stuff by a given map (τ).
+The `tm` field contains a function that turns one of this
+*diamond stuff* into a term. It is used in the traversal
+operation whenever we cross a variable, its identifier first being
+turned into a diamond stuff by a given map (τ).
 
 In the case of renaming, `tm` is defined as the `var` term
 constructor.  The diamond stuff being variable identifier, we want to
