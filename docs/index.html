@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">	<link rel="stylesheet" href="https://latex.now.sh/style.css">
+</head>
+<body>
+<H1># Notes on Conor McBride unpublished <em>Type-Preserving Renaming and Substitution</em>
+</H1><p>
+These notes are written in order to understand the paper and the
+programming technique presented in it. There is nothing original
+in these notes.
+</p>
+<p>
+In this paper, Conor McBride proposes a programming technique that
+allows to define in a generic manner renaming and substitution on a
+lambda calculus defined ad an inductive type family (Altenkirch and
+Reus 1999).
+</p>
+<p>
+The code in the original paper is written in Epigram. I translate it in
+Agda. I mostly keep the original names and notations.
+</p>
+<div>
+<pre><code>
+<span>module TPRS where</span>
+</code></pre></div>
+<p>
+Firstly, let's define the priorities for the mixfix operators we are
+going to use.
+</p>
+<div>
+<pre><code>
+<span>infixr 10 _▷_</span>
+<span>infixl  7 _,_</span>
+<span>infix   5 _▶_</span>
+<span>infix   5 _∋_</span>
+</code></pre></div>
+<p>
+Then we define an inductive data type for the types of our object
+language. The simply types lambda calculus has only two types, a
+ground type and the function type, the latter being defined
+inductively.
+</p>
+<div>
+<pre><code>
+<span>data Ty : Set where</span>
+<span>  ∙ : Ty</span>
+<span>  _▷_ : Ty -> Ty -> Ty</span>
+</code></pre></div>
+<p>
+As the variables in our object language are either bound by a binder
+(a lambda abstraction) or in a context, we need to define a data type
+of context which is just a list of types as we use De Bruijn
+indexes. In a similar way than the traditional presentation of
+context, we use a <code>snoc</code> list.
+</p>
+<div>
+<pre><code>
+<span>data Ctxt : Set where</span>
+<span>  ε : Ctxt</span>
+<span>  _,_ : Ctxt -> Ty -> Ctxt</span>
+</code></pre></div>
+<p>
+In order to code De Bruijn indexes, we use membership proof that are
+isomorphic to Peano natural numbers.
+</p>
+<div>
+<pre><code>
+<span>data _∋_ : Ctxt -> Ty -> Set where</span>
+<span>  vz : ∀ {Γ T}</span>
+<span>    ------------</span>
+<span>    -> Γ , T ∋ T</span>
+<span>    </span>
+<span>  vs : ∀ {Γ T S}</span>
+<span>    -> Γ ∋ T</span>
+<span>    ------------</span>
+<span>    -> Γ , S ∋ T</span>
+</code></pre></div>
+<p>
+We now can define the syntax of our object language. A term depends on
+the context in which it is valid and its type. This allows us to trust
+the host language's typechecker (agda's typechecker) to maintain the terms
+well-scoped and well-typed.
+</p>
+<div>
+<pre><code>
+<span>data _▶_ : Ctxt -> Ty -> Set where</span>
+<span>  var : forall {Γ T}</span>
+<span>    -> Γ ∋ T</span>
+<span>    --------</span>
+<span>    -> Γ ▶ T</span>
+<span>    </span>
+<span>  lda : forall {Γ T S}</span>
+<span>    -> Γ , S ▶ T</span>
+<span>    ------------</span>
+<span>    -> Γ ▶ T ▷ S</span>
+<span>    </span>
+<span>  app : forall {Γ T S}</span>
+<span>    -> Γ ▶ T ▷ S</span>
+<span>    -> Γ ▶ T</span>
+<span>    --------</span>
+<span>    -> Γ ▶ S</span>
+</code></pre></div>
+<p>
+Now that our object language is defined, we can tackle the main object
+of the paper: the generic definition of renaming and substitution of
+our De Bruijn terms.
+</p>
+<p>
+The idea is to pack all the functions we'll need for renaming and
+substitution in a <code>Kit</code> so that we will be able to define a traversal
+operation that is parametrised by a <code>Kit</code>.
+</p>
+<p>
+A <code>Kit</code> is a type family indexed by a type constructor (_◆_) that
+takes a context and a type. In the framework already defined, this is
+the type of the membership proof (_∋_), <em>ie</em> a variable identifier,
+and of a term (_▶_).
+</p>
+<p>
+In order to understand the <code>Kit</code> idea, it is important to note that
+both renaming and substitution operate a traversal of a term replacing
+variables by something. Renaming replaces variables by variables and
+substitution replaces variables by terms. So the general idea is that
+_◆_ can be either a variable identifier or a term.
+</p>
+<p>
+The <code>vr</code> field contains a function that turns a variable identifier
+into the corresponding <em>stuff</em>, either a variable identifier or a
+term. It is used in the <code>lift</code> function (called whenever we cross a
+binder in our traversal) in the case we cross the variable binded to
+the closest binder (the latest abstraction). In the case of renaming,
+<code>vr</code> is defined as the identity function as we don't want to rename
+the new bound variable. In the case of substitution, is is defined
+as <code>var</code> as we don't want to susbtitute the new bound variable.
+</p>
+<p>
+The <code>tm</code> field contains a function that turns one of this
+<em>diamond stuff</em> into a term. It is used in the traversal
+operation whenever we cross a variable, its identifier first being
+turned into a diamond stuff by a given map (τ).
+</p>
+<p>
+In the case of renaming, <code>tm</code> is defined as the <code>var</code> term
+constructor.  The diamond stuff being variable identifier, we want to
+build a variable with a transformed variable identifier. We note that
+<code>rename</code> is only used to defined <code>wk</code> of the Kit for the <code>subst</code>
+function, the given map being <code>vs</code>, that is the equivalent of the
+successor constructor for membership proof. In fact, renaming is
+basically the operation of incrementing the De Bruijn indexes.
+</p>
+<p>
+In the case of substitution, <code>tm</code> is defined as the identity function,
+all the work is done by the second argument, the map that turns
+variable identifiers into terms.
+</p>
+<p>
+The <code>wk</code> field contains, as its name may suggest, a weakening
+function, that is a function that add a new type to the context with
+the guaranty of type preservation of the diamond stuff.
+</p>
+<p>
+<code>wk</code> is only used in the second case of the <code>lift</code> function. That
+makes sense because the <code>lift</code> function weakens, so to speak, a type
+preserving map that turns a variable indentifier in a context Γ to a
+diamond stuff in context Δ.
+</p>
+<div>
+<pre><code>
+<span>record Kit (_◆_ : Ctxt -> Ty -> Set) : Set where</span>
+<span>  constructor kit</span>
+<span>  field</span>
+<span>    vr : ∀ {Γ T} -> Γ ∋ T -> Γ ◆ T</span>
+<span>    tm : ∀ {Γ T} -> Γ ◆ T -> Γ ▶ T</span>
+<span>    wk : ∀ {Γ T S} -> Γ ◆ T -> (Γ , S) ◆ T</span>
+</code></pre></div>
+<p>
+The lift function is a general weakening function called whenever we
+cross a binder in the traversal.
+</p>
+<div>
+<pre><code>
+<span>lift : ∀ {Γ Δ T S}{_◆_ : Ctxt -> Ty -> Set} -> Kit _◆_ -> (∀ {X} -> Γ ∋ X -> Δ ◆ X) -> Γ , S ∋ T -> (Δ , S) ◆ T</span>
+<span>lift (kit vr tm wk) τ vz = vr vz</span>
+<span>lift (kit vr tm wk) τ (vs x) = wk (τ x)</span>
+</code></pre></div>
+<p>
+The traversal takes a Kit and a function that turns variable
+identifiers into diamond stuff (and of course a term to traverse).  It
+calls <code>tm</code> on the transformed variable identiers, lift the body of the
+lambda abstraction before traversing them and traverse recursively the
+two terms composing an application.
+</p>
+<div>
+<pre><code>
+<span>trav : ∀ {Γ Δ T}{_◆_ : Ctxt -> Ty -> Set} -> Kit (_◆_) -> (∀ {X} -> Γ ∋ X -> Δ ◆ X) -> Γ ▶ T -> Δ ▶ T</span>
+<span>trav (kit vr tm wk) τ (var x) = tm (τ x)</span>
+<span>trav K τ (lda t) = lda (trav K (lift K τ) t) </span>
+<span>trav K τ (app t t₁) = app (trav K τ t) (trav K τ t₁)</span>
+</code></pre></div>
+<p>
+<code>rename</code> traverse a term incrementing every De Bruijn indexes that need to be.
+</p>
+<div>
+<pre><code>
+<span>rename : ∀ {Γ Δ T} -> (∀ {X} -> Γ ∋ X -> Δ ∋ X) -> Γ ▶ T -> Δ ▶ T</span>
+<span>rename ρ t = trav (kit (λ x -> x) var vs) ρ t</span>
+</code></pre></div>
+<p>
+<code>subst</code> traverse a term replacing variable accordingly to a substitution map (σ)
+</p>
+<div>
+<pre><code>
+<span>subst : ∀ {Γ Δ T} -> (∀ {X} -> Γ ∋ X -> Δ ▶ X) -> Γ ▶ T -> Δ ▶ T</span>
+<span>subst σ t = trav (kit var (λ x → x) (rename vs)) σ t</span>
+</code></pre></div>
+</body>
+</html>
